@@ -2,16 +2,14 @@
 #include <linux/init.h>
 #include <linux/gpio.h>
 #include <linux/errno.h>
-#include <kobject.h>
-#include <sysfs.h>
+#include <linux/platform_device.h>
+#include <linux/of_gpio.h>
 
-#define DOUT_GPIO_NUM		7
-#define PD_SCK_GPIO_NUM		8
 
-static int power;
-static int value;
-static int calib;
+static int power, value;
+static unsigned int dout_pin, pd_sck_pin;
 
+#if 0
 static ssize_t power_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
         return sprintf(buf, "%d\n", foo);
@@ -32,27 +30,69 @@ static struct attribute_group attr_group = {
 };
 
 static struct kobject *kobj;
+#endif
+
+static int of_get_gpio_pins(struct device_node *np, unsigned int *_dout_pin, unsigned int *_pd_sck_pin)
+{
+        if (of_gpio_count(np) < 2)
+		return -ENODEV;
+ 
+        *_dout_pin = of_get_gpio(np, 0);
+        *_pd_sck_pin = of_get_gpio(np, 1);
+ 
+	if (!gpio_is_valid(*_dout_pin) || !gpio_is_valid(*_pd_sck_pin)) {
+		printk(KERN_INFO "Invalid GPIO pins %d and %d\n", *_dout_pin, *_pd_sck_pin);
+		return -ENODEV;
+	}
+ 
+        return 0;
+}
+
+static int hx711_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = of_get_gpio_pins(pdev->dev.of_node, &dout_pin, &pd_sck_pin);
+	if (ret)
+		return ret;
+	
+	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_DIR_IN, "hx711_clk");
+	if (ret) {
+		printk(KERN_INFO "GPIO request failed\n");
+		gpio_free(dout_pin);
+		gpio_free(pd_sck_pin);
+		return -EINVAL;
+	}
+}
+
+static int hx711_remove(struct platform_device *pdev)
+{
+	gpio_free(dout_pin);
+	gpio_free(pd_sck_pin);
+
+	return 0;
+}
+
+static struct platform_driver hx711_driver = {
+	.driver = {
+		.name = "hx711",
+		.owner = THIS_MODULE,
+	},
+	.probe = hx711_probe,
+	.remove = hx711_remove,
+};
 
 static int __init mod_init(void)
 {
-	int err;
-
-	struct gpio gs[] = {	{DOUT_GPIO_NUM, GPIOF_DIR_IN, 'hx711_data'},
-				(PD_SCK_GPIO_NUM, GPIOF_OUT_INIT_HIGH, 'hx711_clk'} };
-
 	printk(KERN_INFO "hx711 module being loaded\n");
 
-	err = gpio_request_array(gs, 2);
-	if (err) {
-		printk(KERN_INFO "GPIO request failed\n");
-		return -EBUSY;
-	}
-
+#if 0
 	kobj = kobject_create_and_add("hx711", kernel_kobj);
 	if (!kobj) {
 		printk(KERN_INFO "kobject creation failed\n");
 		return -ENOMEM;
 	}
+#endif
 
 	return 0;
 }  
