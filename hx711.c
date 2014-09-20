@@ -3,6 +3,7 @@
 #include <linux/gpio.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
 #include <linux/of_gpio.h>
 
 
@@ -73,10 +74,18 @@ static int hx711_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id hx711_dt_ids[] = {
+	{ .compatible = "hx711", },
+	{ /* sentinel */ }
+};
+
+MODULE_DEVICE_TABLE(of, hx711_dt_ids);
+
 static struct platform_driver hx711_driver = {
 	.driver = {
 		.name = "hx711",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(hx711_dt_ids),
 	},
 	.probe = hx711_probe,
 	.remove = hx711_remove,
