@@ -1,0 +1,6 @@
+*
+
+!.gitignore
+!hx711.c
+!Makefile
+!README

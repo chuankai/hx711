@@ -1,0 +1,6 @@
+1. load cell reading
+2. power down mode
+3. sysfs 
+.../hx711/power: on | off
+.../hx711/value
+.../hx711/calib - write the correct value to the current weight load
