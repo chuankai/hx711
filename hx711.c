@@ -7,8 +7,21 @@
 #include <linux/of_gpio.h>
 #include <linux/sysfs.h>
 
-static int power_data, value_data;
+static int power_data, value_data, config_data;
 static unsigned int dout_pin, pd_sck_pin;
+
+static ssize_t config_show(struct device_driver *drv, char *buf)
+{
+        return sprintf(buf, "%d\n", config_data);
+}
+
+static ssize_t config_store(struct device_driver *drv, const char *buf, size_t count)
+{
+        sscanf(buf, "%d", &config_data);
+        return count;
+}
+
+staic DRIVER_ATTR_RW(config);
 
 static ssize_t power_show(struct device_driver *drv, char *buf)
 {
@@ -33,6 +46,7 @@ static DRIVER_ATTR_RO(value);
 static struct attribute *hx711_attrs[] = {
 	&driver_attr_power.attr,
 	&driver_attr_value.attr,
+	&driver_attr_config.attr,
 	NULL
 };
 
