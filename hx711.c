@@ -8,6 +8,7 @@
 #include <linux/sysfs.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/interrupt.h>
 
 static int power, value, config;
 // Hardcode the gpio pins for now...
@@ -19,7 +20,7 @@ enum {
 	CONFIG_CHANNEL_A_GAIN_128 = 1,
 	CONFIG_CHNNNEL_B_GAIN_32,
 	CONFIG_CHANNEL_A_GAIN_64,
-}
+};
 
 static ssize_t config_show(struct device_driver *drv, char *buf)
 {
@@ -32,7 +33,7 @@ static ssize_t config_store(struct device_driver *drv, const char *buf, size_t c
         return count;
 }
 
-staic DRIVER_ATTR_RW(config);
+static DRIVER_ATTR_RW(config);
 
 static ssize_t power_show(struct device_driver *drv, char *buf)
 {
@@ -125,16 +126,21 @@ static struct platform_driver hx711_driver = {
 	.remove = hx711_remove,
 };
 
-#define DATA_BIT_LENGTH 24
 
+static void hx711_power(int on)
+{
+	gpio_set_value(pd_sck_pin, on ? 0:1);
+}
+
+#define DATA_BIT_LENGTH 24
 static void start_retrieve(void *data)
 {
-	int ret, val, pulses;
+	int ret, val, pulses, i;
 
 	pulses = DATA_BIT_LENGTH + config;
 	val = 0;
 
-	for (int i = 0; i < pulses * 2; i++) {
+	for (i = 0; i < pulses * 2; i++) {
 		usleep_range(1, 2);
 		if ( i & 1) {
 			if (i < 48)
@@ -145,8 +151,6 @@ static void start_retrieve(void *data)
 		}
 	}
 	printk(KERN_INFO "Value: %06x\n", val);
-
-
 }
 
 static irqreturn_t dout_irq_handler(int irq, void *dev)
@@ -155,13 +159,12 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 
 	disable_irq(irq);
 	schedule_work(&retrieve_work);
-	start_pd_clk();
 
 	return IRQ_HANDLED;
 }
 
 // Skip the driver and device binding for now. Do everything here.
-static int hx711_init()
+static int hx711_init(void)
 {
 	int ret;
 
@@ -183,20 +186,11 @@ static int hx711_init()
 		goto EXIT;
 	}
 
+	hx711_power(power);
+
 EXIT:
 	gpio_free(dout_pin);
 	gpio_free(pd_sck_pin);
-	return ret;
-}
-
-static int hx711_power(bool on)
-{
-	int ret;
-
-	ret = gpio_set_value(pd_sck_pin, ON ? 0:1);
-	if (ret)
-		printk(KERN_INFO "gpio set value failed\n");
-
 	return ret;
 }
 
@@ -205,11 +199,7 @@ static int hx711_read(int *weight)
 {
 	int ret;
 
-	ret = hx711_power(1);
-	if (ret) {
-		printf("hx711 power failed\n");
-		return ret;
-	}
+	hx711_power(1);
 
 	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_TRIGGER_FALLING, "hx711", &hx711_driver);
 	if (ret)
