@@ -6,21 +6,29 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/sysfs.h>
+#include <linux/delay.h>
+#include <linux/workqueue.h>
 
-static int power_data, value_data, config_data;
+static int power, value, config;
 // Hardcode the gpio pins for now...
 static unsigned int dout_pin = 7;
 static unsigned int pd_sck_pin = 8;
 static int irq;
 
+enum {
+	CONFIG_CHANNEL_A_GAIN_128 = 1,
+	CONFIG_CHNNNEL_B_GAIN_32,
+	CONFIG_CHANNEL_A_GAIN_64,
+}
+
 static ssize_t config_show(struct device_driver *drv, char *buf)
 {
-        return sprintf(buf, "%d\n", config_data);
+        return sprintf(buf, "%d\n", config);
 }
 
 static ssize_t config_store(struct device_driver *drv, const char *buf, size_t count)
 {
-        sscanf(buf, "%d", &config_data);
+        sscanf(buf, "%d", &config);
         return count;
 }
 
@@ -28,12 +36,12 @@ staic DRIVER_ATTR_RW(config);
 
 static ssize_t power_show(struct device_driver *drv, char *buf)
 {
-        return sprintf(buf, "%d\n", power_data);
+        return sprintf(buf, "%d\n", power);
 }
 
 static ssize_t power_store(struct device_driver *drv, const char *buf, size_t count)
 {
-        sscanf(buf, "%d", &power_data);
+        sscanf(buf, "%d", &power);
         return count;
 }
 
@@ -41,7 +49,7 @@ static DRIVER_ATTR_RW(power);	//struct driver_attribute driver_attr_power
 
 static ssize_t value_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-        return sprintf(buf, "%d\n", value_data);
+        return sprintf(buf, "%d\n", value);
 }
 
 static DRIVER_ATTR_RO(value);
@@ -117,10 +125,49 @@ static struct platform_driver hx711_driver = {
 	.remove = hx711_remove,
 };
 
+#define DATA_BIT_LENGTH 24
+
+static void start_retrieve(void *data)
+{
+	int ret, val, pulses;
+
+	pulses = DATA_BIT_LENGTH + config;
+	val = 0;
+
+	for (int i = 0; i < pulses * 2; i++) {
+		usleep_range(1, 2);
+		if ( i & 1) {
+			if (i < 48)
+				val =  (val << 1) + gpio_get_value(dout_pin);
+			gpio_set_value(dout_pin, 0);
+		} else {
+			gpio_set_value(dout_pin, 1);
+		}
+	}
+	printk(KERN_INFO "Value: %06x\n", val);
+
+
+}
+
+static irqreturn_t dout_irq_handler(int irq, void *dev)
+{
+	static DECLARE_WORK(retrieve_work, start_retrieve);
+
+	disable_irq(irq);
+	schedule_work(&retrieve_work);
+	start_pd_clk();
+
+	return IRQ_HANDLED;
+}
+
 // Skip the driver and device binding for now. Do everything here.
-static int hx711_init(void)
+static int hx711_init()
 {
 	int ret;
+
+	value = 0;
+	power = 0;
+	config = CONFIG_CHANNEL_A_GAIN_64;
 
 	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
 	if (ret) {
@@ -135,8 +182,6 @@ static int hx711_init(void)
 		ret = -EINVAL;
 		goto EXIT;
 	}
-
-	ret = request_threaded_irq(irq, dout_irq_handler, IRQF_TRIGGER_RISING, "hx711", NULL);
 
 EXIT:
 	gpio_free(dout_pin);
@@ -155,6 +200,7 @@ static int hx711_power(bool on)
 	return ret;
 }
 
+
 static int hx711_read(int *weight)
 {
 	int ret;
@@ -164,6 +210,12 @@ static int hx711_read(int *weight)
 		printf("hx711 power failed\n");
 		return ret;
 	}
+
+	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_TRIGGER_FALLING, "hx711", &hx711_driver);
+	if (ret)
+		printk(KERN_INFO "IRQ request failed\n");
+
+	return ret;
 }
 
 static int __init mod_init(void)
