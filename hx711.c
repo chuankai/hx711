@@ -22,49 +22,6 @@ enum {
 	CONFIG_CHANNEL_A_GAIN_64,
 };
 
-static ssize_t config_show(struct device_driver *drv, char *buf)
-{
-        return sprintf(buf, "%d\n", config);
-}
-
-static ssize_t config_store(struct device_driver *drv, const char *buf, size_t count)
-{
-        sscanf(buf, "%d", &config);
-        return count;
-}
-
-static DRIVER_ATTR_RW(config);
-
-static ssize_t power_show(struct device_driver *drv, char *buf)
-{
-        return sprintf(buf, "%d\n", power);
-}
-
-static ssize_t power_store(struct device_driver *drv, const char *buf, size_t count)
-{
-        sscanf(buf, "%d", &power);
-        return count;
-}
-
-static DRIVER_ATTR_RW(power);	//struct driver_attribute driver_attr_power
-
-static ssize_t value_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-        return sprintf(buf, "%d\n", value);
-}
-
-static DRIVER_ATTR_RO(value);
-
-static struct attribute *hx711_attrs[] = {
-	&driver_attr_power.attr,
-	&driver_attr_value.attr,
-	&driver_attr_config.attr,
-	NULL
-};
-
-ATTRIBUTE_GROUPS(hx711);	//contruct attribute_groups *hx711_groups[]
-
-
 static int of_get_gpio_pins(struct device_node *np, unsigned int *_dout_pin, unsigned int *_pd_sck_pin)
 {
         if (of_gpio_count(np) < 2)
@@ -107,24 +64,6 @@ static int hx711_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id hx711_dt_ids[] = {
-	{ .compatible = "hx711", },
-	{ /* sentinel */ }
-};
-
-MODULE_DEVICE_TABLE(of, hx711_dt_ids);
-
-static struct platform_driver hx711_driver = {
-	.driver = {
-		.name = "hx711",
-		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(hx711_dt_ids),
-		.groups = hx711_groups,
-	},
-	.probe = hx711_probe,
-	.remove = hx711_remove,
-};
 
 
 static void hx711_power(int on)
@@ -199,24 +138,93 @@ static int hx711_read(int *weight)
 {
 	int ret;
 
-	hx711_power(1);
-
-	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_TRIGGER_FALLING, "hx711", &hx711_driver);
+	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_TRIGGER_FALLING, "hx711", NULL);
 	if (ret)
 		printk(KERN_INFO "IRQ request failed\n");
 
 	return ret;
 }
 
+
+
+
+static ssize_t config_show(struct device_driver *drv, char *buf)
+{
+        return sprintf(buf, "%d\n", config);
+}
+
+static ssize_t config_store(struct device_driver *drv, const char *buf, size_t count)
+{
+        sscanf(buf, "%d", &config);
+        return count;
+}
+
+static DRIVER_ATTR_RW(config);
+
+static ssize_t power_show(struct device_driver *drv, char *buf)
+{
+        return sprintf(buf, "%d\n", power);
+}
+
+static ssize_t power_store(struct device_driver *drv, const char *buf, size_t count)
+{
+        sscanf(buf, "%d", &power);
+	hx711_power(power);
+        return count;
+}
+
+static DRIVER_ATTR_RW(power);	//struct driver_attribute driver_attr_power
+
+static ssize_t value_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+        return sprintf(buf, "%d\n", value);
+}
+
+static DRIVER_ATTR_RO(value);
+
+static struct attribute *hx711_attrs[] = {
+	&driver_attr_power.attr,
+	&driver_attr_value.attr,
+	&driver_attr_config.attr,
+	NULL
+};
+
+ATTRIBUTE_GROUPS(hx711);	//contruct attribute_groups *hx711_groups[]
+
+static const struct of_device_id hx711_dt_ids[] = {
+	{ .compatible = "hx711", },
+	{ /* sentinel */ }
+};
+
+MODULE_DEVICE_TABLE(of, hx711_dt_ids);
+
+static struct platform_driver hx711_driver = {
+	.driver = {
+		.name = "hx711",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(hx711_dt_ids),
+		.groups = hx711_groups,
+	},
+	.probe = hx711_probe,
+	.remove = hx711_remove,
+};
+
 static int __init mod_init(void)
 {
 	int ret;
 
 	printk(KERN_INFO "hx711 module being loaded\n");
+
+	ret = hx711_init();
+	if (ret) {
+		printk(KERN_INFO "hx711 init failed\n");
+		goto EXIT;
+	}
 	ret = platform_driver_register(&hx711_driver);
 	if (ret)
 		printk(KERN_INFO "hx711 driver registration failed\n");
 
+EXIT:
 	return ret;
 }  
 
