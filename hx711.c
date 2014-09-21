@@ -8,7 +8,10 @@
 #include <linux/sysfs.h>
 
 static int power_data, value_data, config_data;
-static unsigned int dout_pin, pd_sck_pin;
+// Hardcode the gpio pins for now...
+static unsigned int dout_pin = 7;
+static unsigned int pd_sck_pin = 8;
+static int irq;
 
 static ssize_t config_show(struct device_driver *drv, char *buf)
 {
@@ -114,6 +117,55 @@ static struct platform_driver hx711_driver = {
 	.remove = hx711_remove,
 };
 
+// Skip the driver and device binding for now. Do everything here.
+static int hx711_init(void)
+{
+	int ret;
+
+	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
+	if (ret) {
+		printk(KERN_INFO "GPIO request failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	irq = gpio_to_irq(dout_pin);
+	if (irq < 0) {
+		printk(KERN_INFO "IRQ number no available\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	ret = request_threaded_irq(irq, dout_irq_handler, IRQF_TRIGGER_RISING, "hx711", NULL);
+
+EXIT:
+	gpio_free(dout_pin);
+	gpio_free(pd_sck_pin);
+	return ret;
+}
+
+static int hx711_power(bool on)
+{
+	int ret;
+
+	ret = gpio_set_value(pd_sck_pin, ON ? 0:1);
+	if (ret)
+		printk(KERN_INFO "gpio set value failed\n");
+
+	return ret;
+}
+
+static int hx711_read(int *weight)
+{
+	int ret;
+
+	ret = hx711_power(1);
+	if (ret) {
+		printf("hx711 power failed\n");
+		return ret;
+	}
+}
+
 static int __init mod_init(void)
 {
 	int ret;
@@ -122,15 +174,6 @@ static int __init mod_init(void)
 	ret = platform_driver_register(&hx711_driver);
 	if (ret)
 		printk(KERN_INFO "hx711 driver registration failed\n");
-
-
-#if 0
-	kobj = kobject_create_and_add("hx711", kernel_kobj);
-	if (!kobj) {
-		printk(KERN_INFO "kobject creation failed\n");
-		return -ENOMEM;
-	}
-#endif
 
 	return ret;
 }  
