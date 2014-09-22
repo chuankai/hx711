@@ -144,9 +144,9 @@ static void start_retrieve(void *data)
 			gpio_set_value(dout_pin, 1);
 		}
 	}
+	value = val;
+
 	printk(KERN_INFO "Value: %06x\n", val);
-
-
 }
 
 static irqreturn_t dout_irq_handler(int irq, void *dev)
@@ -155,7 +155,6 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 
 	disable_irq(irq);
 	schedule_work(&retrieve_work);
-	start_pd_clk();
 
 	return IRQ_HANDLED;
 }
@@ -201,7 +200,7 @@ static int hx711_power(bool on)
 }
 
 
-static int hx711_read(int *weight)
+static int hx711_read()
 {
 	int ret;
 
