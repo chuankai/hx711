@@ -1,6 +1,15 @@
 1. load cell reading
-2. power down mode
 3. sysfs 
 .../hx711/power: 0 | 1
-.../hx711/value
+.../hx711/gram
 .../hx711/calib - write the correct value to the current weight load
+.../hx711/raw
+
+* calibration
+	- calibration data is sent to the module from userspace
+	- write 5 pairs of "raw gram" records to calib entry
+	- all read from sysfs return 'error' when waiting for calibration data
+	- steps
+		1. write dummy calibration data to make the device enter working mode
+		2. put 50g, 100g, 150g, 200g on the weight and read the raw, respectively
+		3. write the raw with corresponding weight in gram to calib entry 

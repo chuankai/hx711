@@ -10,18 +10,27 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 
-static int power, value, config;
+enum {
+	CONFIG_CHANNEL_A_GAIN_128 = 1,
+	CONFIG_CHNNNEL_B_GAIN_32,
+	CONFIG_CHANNEL_A_GAIN_64,
+};
+
+struct raw_gram_map {
+	int raw;
+	int gram;
+};
+
+#define NUM_OF_CALIB_POINTS	5
+
+static struct raw_gram_map raw_gram_maps[NUM_OF_CALIB_POINTS];
+static int power, value, config, raw;
 // Hardcode the gpio pins for now...
 static unsigned int dout_pin = 7;
 static unsigned int pd_sck_pin = 8;
 static int irq;
 static DEFINE_MUTEX(data_retrieve_mutex);
 
-enum {
-	CONFIG_CHANNEL_A_GAIN_128 = 1,
-	CONFIG_CHNNNEL_B_GAIN_32,
-	CONFIG_CHANNEL_A_GAIN_64,
-};
 
 static int of_get_gpio_pins(struct device_node *np, unsigned int *_dout_pin, unsigned int *_pd_sck_pin)
 {
@@ -168,6 +177,17 @@ static ssize_t config_store(struct device_driver *drv, const char *buf, size_t c
 
 static DRIVER_ATTR_RW(config);
 
+static ssize_t calib_store(struct device_driver *drv, const char *buf, size_t count)
+{
+	int r, g;
+
+        sscanf(buf, "%d %d", &r, &g);
+
+        return count;
+}
+
+static DRIVER_ATTR_WO(calib);
+
 static ssize_t power_show(struct device_driver *drv, char *buf)
 {
         return sprintf(buf, "%d\n", power);
@@ -189,10 +209,19 @@ static ssize_t value_show(struct kobject *kobj, struct kobj_attribute *attr, cha
 
 static DRIVER_ATTR_RO(value);
 
+static ssize_t raw_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+        return sprintf(buf, "%d\n", raw);
+}
+
+static DRIVER_ATTR_RO(raw);
+
 static struct attribute *hx711_attrs[] = {
 	&driver_attr_power.attr,
 	&driver_attr_value.attr,
+	&driver_attr_raw.attr,
 	&driver_attr_config.attr,
+	&driver_attr_calib.attr,
 	NULL
 };
 
