@@ -72,8 +72,9 @@ static void hx711_power(int on)
 }
 
 #define DATA_BIT_LENGTH 24
-static void start_retrieve(void *data)
+static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
+
 	int ret, val, pulses, i;
 
 	pulses = DATA_BIT_LENGTH + config;
@@ -92,14 +93,9 @@ static void start_retrieve(void *data)
 	value = val;
 
 	printk(KERN_INFO "Value: %06x\n", val);
-}
-
-static irqreturn_t dout_irq_handler(int irq, void *dev)
-{
-	static DECLARE_WORK(retrieve_work, start_retrieve);
-
-	disable_irq(irq);
-	schedule_work(&retrieve_work);
+	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
+	if (ret)
+		printk(KERN_INFO "GPIO request failed\n");
 
 	return IRQ_HANDLED;
 }
@@ -140,7 +136,7 @@ static int hx711_read(int *weight)
 {
 	int ret;
 
-	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_TRIGGER_FALLING, "hx711", NULL);
+	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "hx711", NULL);
 	if (ret)
 		printk(KERN_INFO "IRQ request failed\n");
 
@@ -229,9 +225,9 @@ EXIT:
 
 static void __exit mod_exit(void) 
 {
-	printk(KERN_INFO "hx7111 module being unloaded\n"); 
+	printk(KERN_INFO "hx7111 module being unloaded\n");
 
-	//platform_driver_unregister(&hx711_driver);	TODO:result in kernel panic
+	//platform_driver_unregister(&hx711_driver);	TODO:kernel complains about unexpected unload
 }  
 
 module_init(mod_init);
@@ -240,3 +236,4 @@ module_exit(mod_exit);
 MODULE_AUTHOR("Chuankai Lin <chuankai@kai.idv.tw>"); 
 MODULE_LICENSE("Dual BSD/GPL"); 
 MODULE_DESCRIPTION("hx711 driver");
+
