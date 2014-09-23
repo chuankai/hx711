@@ -15,6 +15,7 @@ static int power, value, config;
 static unsigned int dout_pin = 7;
 static unsigned int pd_sck_pin = 8;
 static int irq;
+static DEFINE_MUTEX(data_retrieve_mutex);
 
 enum {
 	CONFIG_CHANNEL_A_GAIN_128 = 1,
@@ -65,17 +66,10 @@ static int hx711_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-static void hx711_power(int on)
-{
-	gpio_set_value(pd_sck_pin, on ? 0:1);
-}
-
 #define DATA_BIT_LENGTH 24
 static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
 	int ret, val, pulses, i;
-	static DEFINE_MUTEX(data_retrieve_mutex);
 
 	mutex_lock(&data_retrieve_mutex);
 
@@ -102,6 +96,32 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	mutex_unlock(&data_retrieve_mutex);
 
 	return IRQ_HANDLED;
+}
+
+static int hx711_power(int on)
+{
+	int ret;
+
+	mutex_lock(&data_retrieve_mutex);
+	if (power == on)
+		return 0;
+
+
+	if (on) {
+		ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "hx711", NULL);
+		if (ret) {
+			printk(KERN_INFO "IRQ request failed\n");
+			goto EXIT;
+		}
+	} else {
+		free_irq(irq, NULL);
+	}
+
+	gpio_set_value(pd_sck_pin, !on);
+	mutex_unlock(&data_retrieve_mutex);
+
+EXIT:
+	return ret;
 }
 
 // Skip the driver and device binding for now. Do everything here.
@@ -132,18 +152,6 @@ static int hx711_init(void)
 EXIT:
 	gpio_free(dout_pin);
 	gpio_free(pd_sck_pin);
-	return ret;
-}
-
-
-static int hx711_read(int *weight)
-{
-	int ret;
-
-	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "hx711", NULL);
-	if (ret)
-		printk(KERN_INFO "IRQ request failed\n");
-
 	return ret;
 }
 
