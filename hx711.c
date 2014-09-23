@@ -74,8 +74,10 @@ static void hx711_power(int on)
 #define DATA_BIT_LENGTH 24
 static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
-
 	int ret, val, pulses, i;
+	static DEFINE_MUTEX(data_retrieve_mutex);
+
+	mutex_lock(&data_retrieve_mutex);
 
 	pulses = DATA_BIT_LENGTH + config;
 	val = 0;
@@ -96,6 +98,8 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
 	if (ret)
 		printk(KERN_INFO "GPIO request failed\n");
+
+	mutex_unlock(&data_retrieve_mutex);
 
 	return IRQ_HANDLED;
 }
