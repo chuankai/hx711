@@ -32,6 +32,8 @@ static int irq;
 static DEFINE_MUTEX(data_retrieve_mutex);
 
 
+static int hx711_power(int);
+
 static int of_get_gpio_pins(struct device_node *np, unsigned int *_dout_pin, unsigned int *_pd_sck_pin)
 {
         if (of_gpio_count(np) < 2)
@@ -78,7 +80,7 @@ static int hx711_remove(struct platform_device *pdev)
 #define DATA_BIT_LENGTH 24
 static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
-	int ret, val, pulses, i;
+	int val, pulses, i;
 
 	mutex_lock(&data_retrieve_mutex);
 
@@ -98,25 +100,21 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	value = val;
 
 	printk(KERN_INFO "Value: %06x\n", val);
-	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
-	if (ret)
-		printk(KERN_INFO "GPIO request failed\n");
 
 	mutex_unlock(&data_retrieve_mutex);
+
+	if (!power)
+		hx711_power(0);
 
 	return IRQ_HANDLED;
 }
 
-static int hx711_power(int on)
+static int hx711_power(int _onoff)
 {
+	static int onoff;
 	int ret;
 
-	mutex_lock(&data_retrieve_mutex);
-	if (power == on)
-		return 0;
-
-
-	if (on) {
+	if (_onoff) {
 		ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "hx711", NULL);
 		if (ret) {
 			printk(KERN_INFO "IRQ request failed\n");
@@ -124,10 +122,11 @@ static int hx711_power(int on)
 		}
 	} else {
 		free_irq(irq, NULL);
+		ret = 0;
 	}
 
-	gpio_set_value(pd_sck_pin, !on);
-	mutex_unlock(&data_retrieve_mutex);
+	gpio_set_value(pd_sck_pin, !_onoff);
+	onoff = !!_onoff;
 
 EXIT:
 	return ret;
@@ -139,7 +138,6 @@ static int hx711_init(void)
 	int ret;
 
 	value = 0;
-	power = 0;
 	config = CONFIG_CHANNEL_A_GAIN_64;
 
 	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
@@ -153,14 +151,17 @@ static int hx711_init(void)
 	if (irq < 0) {
 		printk(KERN_INFO "IRQ number no available\n");
 		ret = -EINVAL;
-		goto EXIT;
+		goto CLEANUP;
 	}
 
-	hx711_power(power);
+	ret = hx711_power(0);
+	if (!ret)
+		goto EXIT;
 
-EXIT:
+CLEANUP:
 	gpio_free(dout_pin);
 	gpio_free(pd_sck_pin);
+EXIT:
 	return ret;
 }
 
@@ -179,9 +180,11 @@ static DRIVER_ATTR_RW(config);
 
 static ssize_t calib_store(struct device_driver *drv, const char *buf, size_t count)
 {
-	int r, g;
-
-        sscanf(buf, "%d %d", &r, &g);
+        sscanf(buf, "%d %d %d %d %d %d %d %d %d %d", &raw_gram_maps[0].raw, &raw_gram_maps[0].gram,\
+							&raw_gram_maps[1].raw, &raw_gram_maps[1].gram,\
+							&raw_gram_maps[2].raw, &raw_gram_maps[2].gram,\
+							&raw_gram_maps[3].raw, &raw_gram_maps[3].gram,\
+							&raw_gram_maps[4].raw, &raw_gram_maps[4].gram);
 
         return count;
 }
@@ -195,8 +198,21 @@ static ssize_t power_show(struct device_driver *drv, char *buf)
 
 static ssize_t power_store(struct device_driver *drv, const char *buf, size_t count)
 {
-        sscanf(buf, "%d", &power);
-	hx711_power(power);
+	int p;
+
+        sscanf(buf, "%d", &p);
+
+	if (!!p != power) {
+		if(p)
+			if(hx711_power(!!p)) {
+				printk(KERN_INFO "hx711_power() failed\n");
+				goto EXIT;
+			}
+
+		power = !!p;
+	}
+
+EXIT:
         return count;
 }
 
