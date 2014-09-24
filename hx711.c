@@ -84,6 +84,7 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	int val, pulses, i;
 
 	//mutex_lock(&data_retrieve_mutex);
+	printk(KERN_INFO "IRQ triggered\n");
 
 	pulses = DATA_BIT_LENGTH + config;
 	val = 0;
@@ -113,7 +114,13 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 static void hx711_power(int onoff)
 {
 	if (!!onoff != power) {
-		gpio_set_value(pd_sck_pin, !onoff);
+		if (onoff) {
+			enable_irq(irq);
+			gpio_set_value(pd_sck_pin, 0);
+		} else {
+			disable_irq(irq);
+			gpio_set_value(pd_sck_pin, 1);
+		}
 		power = !!onoff;
 	}
 }
