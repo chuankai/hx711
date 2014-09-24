@@ -29,10 +29,10 @@ static int power, value, config, raw;
 static unsigned int dout_pin = 7;
 static unsigned int pd_sck_pin = 8;
 static int irq;
-static DEFINE_MUTEX(data_retrieve_mutex);
+//static DEFINE_MUTEX(data_retrieve_mutex);
 
 
-static int hx711_power(int);
+static void hx711_power(int);
 
 static int of_get_gpio_pins(struct device_node *np, unsigned int *_dout_pin, unsigned int *_pd_sck_pin)
 {
@@ -73,6 +73,7 @@ static int hx711_remove(struct platform_device *pdev)
 {
 	gpio_free(dout_pin);
 	gpio_free(pd_sck_pin);
+	free_irq(irq, NULL);
 
 	return 0;
 }
@@ -82,7 +83,7 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
 	int val, pulses, i;
 
-	mutex_lock(&data_retrieve_mutex);
+	//mutex_lock(&data_retrieve_mutex);
 
 	pulses = DATA_BIT_LENGTH + config;
 	val = 0;
@@ -101,7 +102,7 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 
 	printk(KERN_INFO "Value: %06x\n", val);
 
-	mutex_unlock(&data_retrieve_mutex);
+	//mutex_unlock(&data_retrieve_mutex);
 
 	if (!power)
 		hx711_power(0);
@@ -109,31 +110,16 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static int hx711_power(int _onoff)
+static void hx711_power(int onoff)
 {
-	static int onoff;
-	int ret;
-
-	if (_onoff) {
-		ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "hx711", NULL);
-		if (ret) {
-			printk(KERN_INFO "IRQ request failed\n");
-			goto EXIT;
-		}
-	} else {
-		free_irq(irq, NULL);
-		ret = 0;
+	if (!!onoff != power) {
+		gpio_set_value(pd_sck_pin, !onoff);
+		power = !!onoff;
 	}
-
-	gpio_set_value(pd_sck_pin, !_onoff);
-	onoff = !!_onoff;
-
-EXIT:
-	return ret;
 }
 
 // Skip the driver and device binding for now. Do everything here.
-static int hx711_init(void)
+static int __init hx711_init(void)
 {
 	int ret;
 
@@ -154,9 +140,15 @@ static int hx711_init(void)
 		goto CLEANUP;
 	}
 
-	ret = hx711_power(0);
-	if (!ret)
-		goto EXIT;
+	ret = request_threaded_irq(irq, NULL, dout_irq_handler, IRQF_ONESHOT | IRQF_TRIGGER_FALLING, "hx711", NULL);
+	if (ret) {
+		printk(KERN_INFO "IRQ request failed\n");
+		goto CLEANUP;
+	}
+	disable_irq(irq);
+	hx711_power(0);
+
+	goto EXIT;
 
 CLEANUP:
 	gpio_free(dout_pin);
@@ -201,18 +193,8 @@ static ssize_t power_store(struct device_driver *drv, const char *buf, size_t co
 	int p;
 
         sscanf(buf, "%d", &p);
+	hx711_power(!!p);
 
-	if (!!p != power) {
-		if(p)
-			if(hx711_power(!!p)) {
-				printk(KERN_INFO "hx711_power() failed\n");
-				goto EXIT;
-			}
-
-		power = !!p;
-	}
-
-EXIT:
         return count;
 }
 
@@ -284,7 +266,10 @@ static void __exit mod_exit(void)
 {
 	printk(KERN_INFO "hx7111 module being unloaded\n");
 
-	//platform_driver_unregister(&hx711_driver);	TODO:kernel complains about unexpected unload
+	gpio_free(dout_pin);
+	gpio_free(pd_sck_pin);
+	free_irq(irq, NULL);
+	platform_driver_unregister(&hx711_driver);
 }  
 
 module_init(mod_init);
