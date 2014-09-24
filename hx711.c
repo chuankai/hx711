@@ -84,7 +84,6 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	int val, pulses, i;
 
 	//mutex_lock(&data_retrieve_mutex);
-	printk(KERN_INFO "IRQ triggered\n");
 
 	pulses = DATA_BIT_LENGTH + config;
 	val = 0;
@@ -94,14 +93,14 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 		if ( i & 1) {
 			if (i < 48)
 				val =  (val << 1) + gpio_get_value(dout_pin);
-			gpio_set_value(dout_pin, 0);
+			gpio_set_value(pd_sck_pin, 0);
 		} else {
-			gpio_set_value(dout_pin, 1);
+			gpio_set_value(pd_sck_pin, 1);
 		}
 	}
 	value = val;
 
-	printk(KERN_INFO "Value: %06x\n", val);
+	//printk(KERN_INFO "Value: %06x\n", val);
 
 	//mutex_unlock(&data_retrieve_mutex);
 
