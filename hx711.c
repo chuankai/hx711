@@ -29,7 +29,6 @@ static int power, value, config, raw;
 static unsigned int dout_pin = 7;
 static unsigned int pd_sck_pin = 8;
 static int irq;
-//static DEFINE_MUTEX(data_retrieve_mutex);
 
 
 static void hx711_power(int);
@@ -83,13 +82,11 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
 	int val, pulses, i;
 
-	//mutex_lock(&data_retrieve_mutex);
-
 	pulses = DATA_BIT_LENGTH + config;
 	val = 0;
 
 	for (i = 0; i < pulses * 2; i++) {
-		usleep_range(1, 2);
+		udelay(2);
 		if ( i & 1) {
 			if (i < 48)
 				val =  (val << 1) + gpio_get_value(dout_pin);
@@ -99,10 +96,6 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 		}
 	}
 	value = val;
-
-	//printk(KERN_INFO "Value: %06x\n", val);
-
-	//mutex_unlock(&data_retrieve_mutex);
 
 	if (!power)
 		hx711_power(0);
