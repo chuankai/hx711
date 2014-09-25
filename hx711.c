@@ -80,22 +80,22 @@ static int hx711_remove(struct platform_device *pdev)
 #define DATA_BIT_LENGTH 24
 static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
-	int val, pulses, i;
+	int _raw, pulses, i;
 
 	pulses = DATA_BIT_LENGTH + config;
-	val = 0;
+	_raw = 0;
 
 	for (i = 0; i < pulses * 2; i++) {
 		udelay(2);
 		if ( i & 1) {
 			if (i < 48)
-				val =  (val << 1) + gpio_get_value(dout_pin);
+				_raw =  (_raw << 1) + gpio_get_value(dout_pin);
 			gpio_set_value(pd_sck_pin, 0);
 		} else {
 			gpio_set_value(pd_sck_pin, 1);
 		}
 	}
-	value = val;
+	raw = _raw;
 
 	if (!power)
 		hx711_power(0);
