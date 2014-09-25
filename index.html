@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <title>Hx711 by chuankai</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>Hx711</h1>
+        <h2>HX711 ADC raspberrypi weight driver</h2>
+
+        <section id="downloads">
+          <a href="https://github.com/chuankai/hx711/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/chuankai/hx711/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/chuankai/hx711" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <ol>
+<li>load cell reading</li>
+<li><p>sysfs 
+.../hx711/power: 0 | 1
+.../hx711/gram
+.../hx711/calib - write the correct value to the current weight load
+.../hx711/raw</p></li>
+</ol><ul>
+<li>calibration
+
+<ul>
+<li>calibration data is sent to the module from userspace</li>
+<li>write 5 pairs of "raw gram" records to calib entry</li>
+<li>all read from sysfs return 'error' when waiting for calibration data</li>
+<li>steps
+
+<ol>
+<li>write dummy calibration data to make the device enter working mode</li>
+<li>put 50g, 100g, 150g, 200g on the weight and read the raw, respectively</li>
+<li>write the raw with corresponding weight in gram to calib entry </li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
