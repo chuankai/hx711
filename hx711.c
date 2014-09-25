@@ -171,7 +171,7 @@ static DRIVER_ATTR_RW(config);
 
 static ssize_t calib_store(struct device_driver *drv, const char *buf, size_t count)
 {
-        sscanf(buf, "%d %d %d %d %d %d %d %d %d %d", &raw_gram_maps[0].raw, &raw_gram_maps[0].gram,\
+        sscanf(buf, "%d %d %d %d %d %d %d %d %d %d", 	&raw_gram_maps[0].raw, &raw_gram_maps[0].gram,\
 							&raw_gram_maps[1].raw, &raw_gram_maps[1].gram,\
 							&raw_gram_maps[2].raw, &raw_gram_maps[2].gram,\
 							&raw_gram_maps[3].raw, &raw_gram_maps[3].gram,\
@@ -180,7 +180,16 @@ static ssize_t calib_store(struct device_driver *drv, const char *buf, size_t co
         return count;
 }
 
-static DRIVER_ATTR_WO(calib);
+static ssize_t calib_show(struct device_driver *drv, char *buf)
+{
+        return sprintf(buf, "%d %d %d %d %d %d %d %d %d %d\n", 	raw_gram_maps[0].raw, raw_gram_maps[0].gram,\
+								raw_gram_maps[1].raw, raw_gram_maps[1].gram,\
+								raw_gram_maps[2].raw, raw_gram_maps[2].gram,\
+								raw_gram_maps[3].raw, raw_gram_maps[3].gram,\
+								raw_gram_maps[4].raw, raw_gram_maps[4].gram);
+}
+
+static DRIVER_ATTR_RW(calib);
 
 static ssize_t power_show(struct device_driver *drv, char *buf)
 {
