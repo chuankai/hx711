@@ -95,7 +95,7 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 			gpio_set_value(pd_sck_pin, 1);
 		}
 	}
-	raw = _raw;
+	raw = _raw ^ (1 << 23);
 
 	if (!power)
 		hx711_power(0);
