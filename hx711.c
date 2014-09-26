@@ -24,7 +24,7 @@ struct raw_gram_map {
 #define NUM_OF_CALIB_POINTS	5
 
 static struct raw_gram_map raw_gram_maps[NUM_OF_CALIB_POINTS];
-static int power, value, config, raw;
+static int power, config, raw;
 // Hardcode the gpio pins for now...
 static unsigned int dout_pin = 7;
 static unsigned int pd_sck_pin = 8;
@@ -122,7 +122,7 @@ static int __init hx711_init(void)
 {
 	int ret;
 
-	value = 0;
+	raw = 0;
 	config = CONFIG_CHANNEL_A_GAIN_64;
 
 	ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
@@ -210,7 +210,24 @@ static DRIVER_ATTR_RW(power);	//struct driver_attribute driver_attr_power
 
 static ssize_t value_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-        return sprintf(buf, "%d\n", value);
+#if 0	// Do the interpolation in user space
+	int l, h, key, value;
+
+	l = 0;
+	h = NUM_OF_CALIB_POINTS - 1; 
+	key = raw;
+
+	// binary search
+	while (h - l > 1) {
+		if (key <= raw_gram_maps[h].raw)
+			h = (l + h) / 2;
+		else 
+			l = (l + h) / 2;
+	}
+
+	value = raw_gram_maps(l).gram + (raw_gram_maps(h).gram - raw_gram_maps(l).gram) / (  
+#endif
+        return sprintf(buf, "%d\n", 0);
 }
 
 static DRIVER_ATTR_RO(value);

@@ -1,9 +1,8 @@
-1. load cell reading
-3. sysfs 
-.../hx711/power: 0 | 1
-.../hx711/gram
-.../hx711/calib - write the correct value to the current weight load
-.../hx711/raw
+== sysfs ==
+.../hx711/power: RW 0:off, 1:onf
+.../hx711/value: RO weitgh in gram
+.../hx711/calib: RW raw1 gram1 raw2 gram2 ... raw5 gram5 
+.../hx711/raw: RO
 
 * calibration
 	- calibration data is sent to the module from userspace
