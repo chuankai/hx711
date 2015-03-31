@@ -1,14 +1,3 @@
 == sysfs ==
-.../hx711/power: RW 0:off, 1:onf
-.../hx711/value: RO weitgh in gram
-.../hx711/calib: RW raw1 gram1 raw2 gram2 ... raw5 gram5 
+.../hx711/power: RW 0:off, 1:on
 .../hx711/raw: RO
-
-* calibration
-	- calibration data is sent to the module from userspace
-	- write 5 pairs of "raw gram" records to calib entry
-	- all read from sysfs return 'error' when waiting for calibration data
-	- steps
-		1. write dummy calibration data to make the device enter working mode
-		2. put 50g, 100g, 150g, 200g on the weight and read the raw, respectively
-		3. write the raw with corresponding weight in gram to calib entry 
