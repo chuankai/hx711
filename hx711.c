@@ -86,7 +86,7 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	_raw = 0;
 
 	for (i = 0; i < pulses * 2; i++) {
-		udelay(2);
+		udelay(1);
 		if ( i & 1) {
 			if (i < 48)
 				_raw =  (_raw << 1) + gpio_get_value(dout_pin);
