@@ -55,7 +55,7 @@ static int hx711_probe(struct platform_device *pdev)
 
 	ret = of_get_gpio_pins(pdev->dev.of_node, &dout_pin, &pd_sck_pin);
 	if (!ret) {
-		ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_DIR_IN, "hx711_clk");
+		ret = gpio_request_one(dout_pin, GPIOF_DIR_IN, "hx711_data") || gpio_request_one(pd_sck_pin, GPIOF_OUT_INIT_HIGH, "hx711_clk");
 		if (ret) {
 			printk(KERN_INFO "GPIO request failed\n");
 			gpio_free(dout_pin);
