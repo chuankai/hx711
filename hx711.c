@@ -82,6 +82,14 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 {
 	int _raw, pulses, i;
 
+	for (i = 0; i < 3; i++) {
+		udelay(1);
+		if (gpio_get_value(dout_pin)) {
+			//printk(KERN_INFO "DOUT goes high in IRQ handler\n");
+			return IRQ_HANDLED;
+		}
+	}
+
 	pulses = DATA_BIT_LENGTH + config;
 	_raw = 0;
 
@@ -97,6 +105,7 @@ static irqreturn_t dout_irq_handler(int irq, void *dev)
 	}
 	raw = _raw ^ (1 << 23);
 
+	//printk(KERN_INFO "hx711 raw: %04X\n", _raw);
 	if (!power)
 		hx711_power(0);
 
